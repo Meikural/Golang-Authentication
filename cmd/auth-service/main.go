@@ -9,10 +9,11 @@ import (
 	"github.com/joho/godotenv"
 
 	"auth-service/internal/db"
+	"auth-service/internal/handlers"
 )
 
 func main() {
-	
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️  No .env file found, using system environment variables")
 	}
@@ -40,6 +41,8 @@ func main() {
 			"version": "v0.1.0",
 		})
 	})
+	app.Post("/api/v1/login", handlers.Login)
+	app.Get("/api/v1/me", handlers.Me)
 
 	// ----------------------------------------------------
 	// 6️⃣ Start Server
