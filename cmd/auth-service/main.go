@@ -44,7 +44,7 @@ func main() {
 	})
 	app.Post("/api/v1/login", handlers.Login)
 	app.Get("/api/v1/me", middleware.AuthRequired(), handlers.Me)
-	app.Post("/api/v1/register", middleware.AuthRequired(), handlers.Register)
+	app.Post("/api/v1/register", handlers.Register)
 
 	app.Get("/api/v1/superadmin/policies", middleware.AuthRequired(), handlers.GetAllPolicies)
 	app.Get("/api/v1/superadmin/policies/:name", middleware.AuthRequired(), handlers.GetPolicyByName)
