@@ -46,6 +46,9 @@ func main() {
 	app.Get("/api/v1/me", middleware.AuthRequired(), handlers.Me)
 	app.Post("/api/v1/register", middleware.AuthRequired(), handlers.Register)
 
+	app.Get("/api/v1/superadmin/policies", middleware.AuthRequired(), handlers.GetAllPolicies)
+	app.Get("/api/v1/superadmin/policies/:name", middleware.AuthRequired(), handlers.GetPolicyByName)
+	app.Post("/api/v1/superadmin/policies", middleware.AuthRequired(), handlers.UpsertPolicies)
 
 	// ----------------------------------------------------
 	// 6️⃣ Start Server
