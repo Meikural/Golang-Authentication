@@ -50,6 +50,12 @@ func main() {
 	app.Get("/api/v1/superadmin/policies/:name", middleware.AuthRequired(), handlers.GetPolicyByName)
 	app.Post("/api/v1/superadmin/policies", middleware.AuthRequired(), handlers.UpsertPolicies)
 
+	app.Get("/api/v1/admin/roles", middleware.AuthRequired(), handlers.GetRoles)
+	app.Post("/api/v1/admin/roles", middleware.AuthRequired(), handlers.CreateRole)
+	app.Post("/api/v1/admin/assign-role", middleware.AuthRequired(), handlers.AssignRole)
+	app.Delete("/api/v1/admin/revoke-role", middleware.AuthRequired(), handlers.RevokeRole)
+
+
 	// ----------------------------------------------------
 	// 6️⃣ Start Server
 	// ----------------------------------------------------
