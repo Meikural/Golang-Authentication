@@ -10,6 +10,7 @@ import (
 
 	"auth-service/internal/db"
 	"auth-service/internal/handlers"
+	"auth-service/internal/middleware"
 )
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 		})
 	})
 	app.Post("/api/v1/login", handlers.Login)
-	app.Get("/api/v1/me", handlers.Me)
+	app.Get("/api/v1/me", middleware.AuthRequired(), handlers.Me)
 
 	// ----------------------------------------------------
 	// 6️⃣ Start Server
