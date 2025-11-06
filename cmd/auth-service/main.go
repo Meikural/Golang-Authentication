@@ -55,6 +55,10 @@ func main() {
 	app.Post("/api/v1/admin/assign-role", middleware.AuthRequired(), handlers.AssignRole)
 	app.Delete("/api/v1/admin/revoke-role", middleware.AuthRequired(), handlers.RevokeRole)
 
+	app.Get("/api/v1/admin/users", middleware.AuthRequired(), handlers.ListUsers)
+	app.Get("/api/v1/admin/users/:id", middleware.AuthRequired(), handlers.GetUserByID)
+	app.Patch("/api/v1/admin/users/:id/status", middleware.AuthRequired(), handlers.UpdateUserStatus)
+	app.Delete("/api/v1/admin/users/:id", middleware.AuthRequired(), handlers.DeleteUser)
 
 	// ----------------------------------------------------
 	// 6️⃣ Start Server
