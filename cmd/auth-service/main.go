@@ -44,6 +44,8 @@ func main() {
 	})
 	app.Post("/api/v1/login", handlers.Login)
 	app.Get("/api/v1/me", middleware.AuthRequired(), handlers.Me)
+	app.Post("/api/v1/register", middleware.AuthRequired(), handlers.Register)
+
 
 	// ----------------------------------------------------
 	// 6️⃣ Start Server
