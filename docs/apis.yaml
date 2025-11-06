@@ -1,0 +1,117 @@
+# ==========================================
+# Auth + RBAC + Policy Service (Go + Fiber)
+# ==========================================
+
+auth_service:
+  base_url: /api/v1
+
+  endpoints:
+    # ------------------------------
+    # 🔐 AUTHENTICATION
+    # ------------------------------
+    - method: POST
+      path: /register
+      access: depends_on_policy # open / restricted / super_admin_only
+      desc: Register new user (mode controlled by policy)
+
+    - method: POST
+      path: /login
+      access: public
+      desc: Authenticate user and issue JWT tokens
+
+    - method: POST
+      path: /refresh
+      access: public
+      desc: Refresh access token using refresh token
+
+    - method: GET
+      path: /me
+      access: authenticated
+      desc: Get details of current user (decoded from JWT)
+
+    - method: POST
+      path: /logout
+      access: authenticated
+      desc: Optional — invalidate refresh token
+
+    # ------------------------------
+    # 👤 USER MANAGEMENT
+    # ------------------------------
+    - method: GET
+      path: /admin/users
+      access: admin_or_super_admin
+      desc: List all users
+
+    - method: POST
+      path: /admin/users
+      access: depends_on_policy # usually super_admin or admin
+      desc: Create new user manually (for closed registration)
+
+    - method: GET
+      path: /admin/users/:id
+      access: admin_or_super_admin
+      desc: View single user details
+
+    - method: PATCH
+      path: /admin/users/:id/status
+      access: admin_or_super_admin
+      desc: Activate or deactivate user account
+
+    - method: DELETE
+      path: /admin/users/:id
+      access: super_admin
+      desc: Permanently delete user
+
+    # ------------------------------
+    # 🎭 ROLE MANAGEMENT
+    # ------------------------------
+    - method: GET
+      path: /admin/roles
+      access: super_admin
+      desc: List all roles
+
+    - method: POST
+      path: /admin/roles
+      access: super_admin
+      desc: Create a new role
+
+    - method: POST
+      path: /admin/assign-role
+      access: super_admin
+      desc: Assign role(s) to user
+
+    - method: DELETE
+      path: /admin/revoke-role
+      access: super_admin
+      desc: Remove role(s) from user
+
+    # ------------------------------
+    # ⚙️ POLICY MANAGEMENT
+    # ------------------------------
+    - method: GET
+      path: /superadmin/policies
+      access: super_admin
+      desc: List all current auth policies
+
+    - method: GET
+      path: /superadmin/policies/:name
+      access: super_admin
+      desc: Get a single policy by name
+
+    - method: POST
+      path: /superadmin/policies
+      access: super_admin
+      desc: Create or update policy value (e.g., registration_mode)
+
+    # ------------------------------
+    # 🧾 SYSTEM / UTILITIES
+    # ------------------------------
+    - method: GET
+      path: /health
+      access: public
+      desc: Service health check (for Docker / K8s)
+
+    - method: GET
+      path: /version
+      access: public
+      desc: Returns current build version and commit info

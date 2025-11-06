@@ -1,0 +1,232 @@
+============================================================
+ AUTH + RBAC + POLICY MICROSERVICE (GO + FIBER + POSTGRESQL)
+============================================================
+
+PURPOSE:
+---------
+A LIGHTWEIGHT, SELF-CONTAINED AUTHENTICATION AND RBAC MICROSERVICE
+BUILT USING GO (FIBER) + POSTGRESQL + PLAIN SQL.
+
+THE SERVICE CAN RUN AS A STANDALONE CONTAINER AND BE REUSED IN OTHER
+PROJECTS VIA DOCKER COMPOSE. IT PROVIDES USER AUTHENTICATION, ROLE-BASED
+ACCESS CONTROL (RBAC), AND DYNAMIC POLICY CONFIGURATION.
+
+------------------------------------------------------------
+ CORE DESIGN GOALS
+------------------------------------------------------------
+1. REUSABLE AUTH MODULE FOR INTERNAL PROJECTS (RUN VIA DOCKER)
+2. JWT-BASED AUTHENTICATION (ACCESS + REFRESH TOKENS)
+3. ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM
+4. SUPER ADMIN SEEDED VIA ENV VARIABLES
+5. DYNAMIC CONFIGURATION THROUGH POLICIES (E.G., REGISTRATION MODE)
+6. PLAIN SQL ONLY – NO ORM (USE pgx OR DATABASE/sql)
+7. DESIGNED FOR INTERNAL USE (NOT PUBLICLY HOSTED)
+
+------------------------------------------------------------
+ ARCHITECTURE OVERVIEW
+------------------------------------------------------------
+- SERVICE: AUTH-SERVICE (GO + FIBER)
+- DATABASE: POSTGRESQL
+- AUTH MODEL: EMAIL + PASSWORD
+- TOKEN SYSTEM: JWT ACCESS + OPTIONAL REFRESH TOKEN
+- RBAC MODEL: SUPER_ADMIN → ADMIN → USER / SERVICE
+- CONFIG CONTROLLED VIA POLICY TABLE
+
+------------------------------------------------------------
+ DEFAULT USER FLOW
+------------------------------------------------------------
+1. ON STARTUP:
+   - CONNECT TO DATABASE
+   - SEED ROLES: SUPER_ADMIN, ADMIN, USER, SERVICE
+   - SEED DEFAULT POLICIES
+   - CREATE SUPER ADMIN USER FROM ENV:
+       SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD
+
+2. LOGIN FLOW:
+   - USER AUTHENTICATES WITH EMAIL + PASSWORD
+   - SERVICE RETURNS ACCESS TOKEN (JWT) + REFRESH TOKEN
+
+3. REGISTRATION FLOW:
+   - BEHAVIOR DEPENDS ON "registration_mode" POLICY
+   - MODES:
+     * SUPER_ADMIN_ONLY → ONLY SUPER ADMIN CAN CREATE USERS
+     * OPEN → ANYONE CAN REGISTER VIA /register
+     * RESTRICTED → ONLY SPECIFIC ROLES (E.G., ADMIN) CAN CREATE USERS
+
+------------------------------------------------------------
+ DATABASE SCHEMA
+------------------------------------------------------------
+
+DATABASE: authdb
+ENGINE: postgresql
+
+TABLES:
+--------
+1. users
+   - id SERIAL PRIMARY KEY
+   - email TEXT UNIQUE NOT NULL
+   - password_hash TEXT NOT NULL
+   - is_active BOOLEAN DEFAULT TRUE
+   - created_at TIMESTAMP DEFAULT NOW()
+   - updated_at TIMESTAMP DEFAULT NOW()
+
+2. roles
+   - id SERIAL PRIMARY KEY
+   - name TEXT UNIQUE NOT NULL
+   - description TEXT
+
+3. user_roles (MANY-TO-MANY)
+   - user_id INT REFERENCES users(id) ON DELETE CASCADE
+   - role_id INT REFERENCES roles(id) ON DELETE CASCADE
+   - PRIMARY KEY (user_id, role_id)
+
+4. auth_policies
+   - id SERIAL PRIMARY KEY
+   - name TEXT UNIQUE NOT NULL
+   - value TEXT NOT NULL  (JSON OR STRING)
+   - updated_at TIMESTAMP DEFAULT NOW()
+
+   DEFAULT POLICIES:
+   -----------------
+   registration_mode = "super_admin_only"
+   allowed_roles_for_registration = ["admin"]
+   allow_password_reset = "true"
+   require_email_verification = "false"
+
+5. refresh_tokens (OPTIONAL)
+   - id SERIAL PRIMARY KEY
+   - user_id INT REFERENCES users(id) ON DELETE CASCADE
+   - token TEXT UNIQUE NOT NULL
+   - expires_at TIMESTAMP NOT NULL
+   - revoked BOOLEAN DEFAULT FALSE
+
+6. audit_logs (OPTIONAL)
+   - id SERIAL PRIMARY KEY
+   - user_id INT REFERENCES users(id)
+   - action TEXT NOT NULL
+   - metadata JSONB
+   - created_at TIMESTAMP DEFAULT NOW()
+
+------------------------------------------------------------
+ ROLE STRUCTURE
+------------------------------------------------------------
+- SUPER_ADMIN → HAS ALL PERMISSIONS
+- ADMIN → MANAGES USERS, LIMITED CONFIG
+- USER → BASIC ACCESS ONLY
+- SERVICE → USED BY OTHER BACKEND SERVICES
+
+------------------------------------------------------------
+ POLICY CONTROL SYSTEM
+------------------------------------------------------------
+SUPER ADMIN CAN MODIFY SYSTEM BEHAVIOR AT RUNTIME.
+
+EXAMPLE POLICIES:
+-----------------
+- registration_mode: "super_admin_only" | "open" | "restricted"
+- allowed_roles_for_registration: ["admin", "service"]
+- allow_password_reset: "true" | "false"
+- require_email_verification: "false" | "true"
+
+POLICY CHANGE ENDPOINT:
+-----------------------
+POST /superadmin/policies
+{
+  "registration_mode": "restricted",
+  "allowed_roles_for_registration": ["admin"]
+}
+
+ALL POLICIES ARE STORED IN `auth_policies` TABLE AND CACHED IN MEMORY.
+
+------------------------------------------------------------
+ ENDPOINT SUMMARY
+------------------------------------------------------------
+
+BASE URL: /api/v1
+
+AUTH:
+-----
+POST   /register                (depends_on_policy)
+POST   /login                   (public)
+POST   /refresh                 (public)
+GET    /me                      (authenticated)
+POST   /logout                  (authenticated)
+
+USER MANAGEMENT:
+----------------
+GET    /admin/users             (admin_or_super_admin)
+POST   /admin/users             (depends_on_policy)
+GET    /admin/users/:id         (admin_or_super_admin)
+PATCH  /admin/users/:id/status  (admin_or_super_admin)
+DELETE /admin/users/:id         (super_admin)
+
+ROLE MANAGEMENT:
+----------------
+GET    /admin/roles             (super_admin)
+POST   /admin/roles             (super_admin)
+POST   /admin/assign-role       (super_admin)
+DELETE /admin/revoke-role       (super_admin)
+
+POLICY MANAGEMENT:
+------------------
+GET    /superadmin/policies     (super_admin)
+GET    /superadmin/policies/:name (super_admin)
+POST   /superadmin/policies     (super_admin)
+
+SYSTEM:
+-------
+GET    /health                  (public)
+GET    /version                 (public)
+
+------------------------------------------------------------
+ JWT PAYLOAD STRUCTURE
+------------------------------------------------------------
+{
+  "sub": 1,
+  "email": "user@example.com",
+  "roles": ["admin"],
+  "exp": 1730800000
+}
+
+------------------------------------------------------------
+ DOCKER COMPOSE (EXAMPLE)
+------------------------------------------------------------
+services:
+  auth:
+    build: ./auth-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgres://user:pass@postgres:5432/authdb?sslmode=disable
+      - JWT_SECRET=supersecretkey
+      - SUPERADMIN_EMAIL=superadmin@internal.local
+      - SUPERADMIN_PASSWORD=change_me_now
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=authdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+
+------------------------------------------------------------
+ KEY NOTES
+------------------------------------------------------------
+- SUPER ADMIN IS SEEDED AUTOMATICALLY ON FIRST STARTUP.
+- DEFAULT REGISTRATION MODE = "SUPER_ADMIN_ONLY".
+- POLICY SETTINGS CAN BE CHANGED AT RUNTIME BY SUPER ADMIN.
+- RBAC ENFORCED THROUGH JWT "roles" CLAIM.
+- NO ORM USED – PURE SQL QUERIES.
+- SERVICE IS REUSABLE IN ANY PROJECT VIA DOCKER COMPOSE.
+- JWT TOKENS ARE SELF-CONTAINED; OTHER SERVICES JUST VERIFY.
+- CLEAN, INTERNAL-USE DESIGN (NO EXTERNAL PROVIDER DEPENDENCY).
+- EXTENDABLE: CAN ADD OAUTH, MFA, OR AUDIT LOGGING LATER.
+
+============================================================

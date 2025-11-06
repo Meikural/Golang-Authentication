@@ -1,0 +1,1 @@
+docker run --name auth-postgres -e POSTGRES_USER=authuser -e POSTGRES_PASSWORD=authpass -e POSTGRES_DB=authdb -p 5432:5432 -v auth_pgdata:/var/lib/postgresql/data -d postgres:16-alpine

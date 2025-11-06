@@ -1,0 +1,172 @@
+# ==========================================
+# Auth + RBAC + Policy Service - Database Schema
+# ==========================================
+
+database:
+  name: authdb
+  engine: postgresql
+  version: 16
+
+  tables:
+    # ------------------------------
+    # 🧍 USERS
+    # ------------------------------
+    - name: users
+      description: Stores registered users (including super admin)
+      columns:
+        - name: id
+          type: SERIAL
+          constraints: [PRIMARY KEY]
+
+        - name: email
+          type: TEXT
+          constraints: [NOT NULL, UNIQUE]
+
+        - name: password_hash
+          type: TEXT
+          constraints: [NOT NULL]
+
+        - name: is_active
+          type: BOOLEAN
+          default: true
+          description: Account status flag
+
+        - name: created_at
+          type: TIMESTAMP
+          default: NOW()
+
+        - name: updated_at
+          type: TIMESTAMP
+          default: NOW()
+
+    # ------------------------------
+    # 🎭 ROLES
+    # ------------------------------
+    - name: roles
+      description: Role definitions (admin, super_admin, user, service)
+      columns:
+        - name: id
+          type: SERIAL
+          constraints: [PRIMARY KEY]
+
+        - name: name
+          type: TEXT
+          constraints: [NOT NULL, UNIQUE]
+
+        - name: description
+          type: TEXT
+          constraints: [NULLABLE]
+
+    # ------------------------------
+    # 🔗 USER ROLES (Many-to-Many)
+    # ------------------------------
+    - name: user_roles
+      description: Maps users to roles (many-to-many)
+      columns:
+        - name: user_id
+          type: INT
+          constraints:
+            - NOT NULL
+            - REFERENCES users(id) ON DELETE CASCADE
+
+        - name: role_id
+          type: INT
+          constraints:
+            - NOT NULL
+            - REFERENCES roles(id) ON DELETE CASCADE
+
+      constraints:
+        - PRIMARY KEY (user_id, role_id)
+
+    # ------------------------------
+    # ⚙️ AUTH POLICIES
+    # ------------------------------
+    - name: auth_policies
+      description: Stores system-wide configurable policies
+      columns:
+        - name: id
+          type: SERIAL
+          constraints: [PRIMARY KEY]
+
+        - name: name
+          type: TEXT
+          constraints: [NOT NULL, UNIQUE]
+
+        - name: value
+          type: TEXT
+          constraints: [NOT NULL]
+          description: JSON-encoded or plain string value
+
+        - name: updated_at
+          type: TIMESTAMP
+          default: NOW()
+
+      example_records:
+        - name: registration_mode
+          value: '"super_admin_only"'
+        - name: allowed_roles_for_registration
+          value: '["admin","service"]'
+        - name: allow_password_reset
+          value: '"true"'
+        - name: require_email_verification
+          value: '"false"'
+
+    # ------------------------------
+    # 🔑 REFRESH TOKENS (Optional)
+    # ------------------------------
+    - name: refresh_tokens
+      description: Used for long-lived session refresh (optional)
+      columns:
+        - name: id
+          type: SERIAL
+          constraints: [PRIMARY KEY]
+
+        - name: user_id
+          type: INT
+          constraints:
+            - NOT NULL
+            - REFERENCES users(id) ON DELETE CASCADE
+
+        - name: token
+          type: TEXT
+          constraints: [NOT NULL, UNIQUE]
+
+        - name: expires_at
+          type: TIMESTAMP
+          constraints: [NOT NULL]
+
+        - name: created_at
+          type: TIMESTAMP
+          default: NOW()
+
+        - name: revoked
+          type: BOOLEAN
+          default: false
+          description: Marks token as invalidated
+
+    # ------------------------------
+    # 🧾 AUDIT LOGS (Future-ready, optional)
+    # ------------------------------
+    - name: audit_logs
+      description: Optional table for tracking critical actions
+      columns:
+        - name: id
+          type: SERIAL
+          constraints: [PRIMARY KEY]
+
+        - name: user_id
+          type: INT
+          constraints:
+            - REFERENCES users(id) ON DELETE SET NULL
+
+        - name: action
+          type: TEXT
+          constraints: [NOT NULL]
+
+        - name: metadata
+          type: JSONB
+          description: Optional structured payload
+
+        - name: created_at
+          type: TIMESTAMP
+          default: NOW()
