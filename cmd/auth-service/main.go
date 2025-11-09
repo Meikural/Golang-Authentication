@@ -24,7 +24,7 @@ func main() {
 
 	app := fiber.New()
 
-	app.Get("/health", func(c *fiber.Ctx) error {
+	app.Get("api/v1/health", func(c *fiber.Ctx) error {
 		dbStatus := "disconnected"
 		if db.CheckHealth() {
 			dbStatus = "connected"
@@ -36,7 +36,7 @@ func main() {
 		})
 	})
 
-	app.Get("/version", func(c *fiber.Ctx) error {
+	app.Get("api/v1/version", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"service": "auth-service",
 			"version": "v0.1.0",
